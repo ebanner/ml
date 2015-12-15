@@ -3,7 +3,7 @@ import numpy as np
 from nn.shallow.helper import tanh_grad
 from softmax import softmax_vectorized
 
-from rnn.support import State, Snapshot, Gradients, input_generator
+from rnn.support import State, Snapshot, Gradients, input_generator, random_weight_matrix
 
 import logging
 from logging import warning as warn
@@ -54,16 +54,16 @@ class RecurrentNeuralNetwork:
 
         # Hidden and input weights
         self.Whh = np.identity(H) if not type(Whh) == np.ndarray else Whh
-        self.bhh = np.random.uniform(-.8, .8, (H, 1)) if not type(bhh) == np.ndarray else bhh
-        self.Wxh = np.random.uniform(-.8, .8, (H, self.N)) if not type(Wxh) == np.ndarray else Wxh
-        self.bxh = np.random.uniform(-.8, .8, (H, 1)) if not type(bxh) == np.ndarray else bxh
+        self.bhh = random_weight_matrix(H, 1) if not type(bhh) == np.ndarray else bhh
+        self.Wxh = random_weight_matrix(H, self.N) if not type(Wxh) == np.ndarray else Wxh
+        self.bxh = random_weight_matrix(H, 1) if not type(bxh) == np.ndarray else bxh
 
         # Current hidden state
         self.hidden = np.zeros((H, 1))
         
         # Softmax weights
-        self.Ws = np.random.randn(C, H) if not type(Ws) == np.ndarray else Ws
-        self.bs = np.random.randn(C, 1) if not type(bs) == np.ndarray else bs
+        self.Ws = random_weight_matrix(C, H) if not type(Ws) == np.ndarray else Ws
+        self.bs = random_weight_matrix(C, 1) if not type(bs) == np.ndarray else bs
         
         self.rollout = self.T if not rollout else rollout
         self.learning_rate = learning_rate
