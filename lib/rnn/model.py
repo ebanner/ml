@@ -3,7 +3,7 @@ import numpy as np
 from nn.shallow.helper import tanh_grad
 from softmax import softmax_vectorized
 
-from rnn.support import State, Snapshot, Gradients
+from rnn.support import State, Snapshot, Gradients, input_generator
 
 import logging
 from logging import warning as warn
@@ -49,7 +49,8 @@ class RecurrentNeuralNetwork:
         (self.N, self.T) = X.shape
         self.H = H
         
-        self.X_train, self.ys_train = X, ys_train
+        # Set up examples generator
+        self.input = input_generator(X, ys_train)
 
         # Hidden and input weights
         self.Whh = np.identity(H) if not type(Whh) == np.ndarray else Whh
@@ -71,8 +72,6 @@ class RecurrentNeuralNetwork:
         self.gradient_checking = gradient_checking
         self.inspect = inspect
         
-        self.train_index = 0
-        
     def predict(self, X):
         """Return the probability of x belonging to either class"""
         
@@ -88,7 +87,7 @@ class RecurrentNeuralNetwork:
         
         return proper_scores, proper_scores.argmax(axis=0)
         
-    def forward_backward_prop(self, X=None, ys=None, rollout=None, train_index=None,
+    def forward_backward_prop(self, X=None, ys=None, rollout=None,
             Whh=None, bhh=None, Wxh=None, bxh=None, Ws=None, bs=None,
             hidden=None, predict=False):
         """Perform forward and backward prop over a single training example
@@ -111,35 +110,29 @@ class RecurrentNeuralNetwork:
 
         # Where to start in the sequence and how far to go
         rollout = self.rollout if not rollout else rollout
-        train_index = self.train_index if not train_index else train_index
 
-        # Get next portion of sequence to train on
-        if not type(X) == np.ndarray:
-            X = self.X_train[:, train_index:train_index+rollout] 
-            ys = self.ys_train[train_index:train_index+rollout]
-            
-            # Got to the end and need to wrap around?
-            if train_index+rollout > self.T:
-                rollover_index = (train_index+rollout) % self.T
-
-                X = np.hstack([X, self.X_train[:, :rollover_index]])
-                ys = np.hstack([ys, self.ys_train[:rollover_index]])
-
-        # Append column of zeros to align X and Y with natural time
-        X, ys = np.hstack([np.zeros((self.N, 1)), X]), np.hstack([np.zeros(1, dtype=np.int), ys])
+        # Convert X and ys to dictionaries?
+        if predict:
+            X = {t+1:X[:, [t]] for t in range(rollout)}
+            ys = {t+1:1 for t in range(rollout)}
+        else:
+            X, ys = {}, {}
 
         # Forward pass!
         dWhh, dbhh = np.zeros_like(Whh), np.zeros_like(bhh)
         dWxh, dbxh = np.zeros_like(Wxh), np.zeros_like(bxh)
         dWs, dbs = np.zeros_like(Ws), np.zeros_like(bs)
-        
+
         loss = 0.
         hiddens = {0: hidden}
         dhiddens, dhiddens_downstream, dhiddens_local = {}, {rollout:np.zeros((self.H, 1))}, {}
         scores, probs = {}, {}
         for t in range(1, rollout+1):
+            # Get the next input in the sequence
+            X[t], ys[t] = next(self.input)
+
             # Previous hidden layer and input at time t
-            Z = (Whh @ hiddens[t-1] + bhh) + (Wxh @ X[:,[t]] + bxh)
+            Z = (Whh @ hiddens[t-1] + bhh) + (Wxh @ X[t] + bxh)
             hiddens[t] = np.tanh(Z)
             
             # Softmax
@@ -175,7 +168,7 @@ class RecurrentNeuralNetwork:
 
             # Input and hidden weights
             dbxh += dZ
-            dWxh += dZ @ X[:,[t]].T
+            dWxh += dZ @ X[t].T
             dbhh += dZ
             dWhh += dZ @ hiddens[t-1].T
             
@@ -196,7 +189,7 @@ class RecurrentNeuralNetwork:
         
         # Log additional info?
         if self.inspect:
-            self.xs, self.ys = str(X[:, 1:]), str(ys[1:])
+            self.xs, self.ys = str(X), str(ys)
             self.scores, self.probs = scores, probs
             self.loss = loss
             self.dWhh, self.dbhh, self.dWxh, self.dbxh = dWhh, dbhh, dWxh, dbxh
@@ -239,9 +232,6 @@ class RecurrentNeuralNetwork:
         # Softmax weights
         self.Ws = self.Ws - self.learning_rate*dWs
         self.bs = self.bs - self.learning_rate*dbs
-        
-        # Update batch index so the next time the next batch in line is used
-        self.train_index = (self.train_index+self.rollout) % self.T
         
     def gradient_check(self, analytic_grads, hidden):
         """Verify gradient correctness
