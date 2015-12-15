@@ -39,8 +39,12 @@ def random_Ws(layer_sizes):
 
     """
     num_layers = len(layer_sizes)
+
     for i in range(num_layers-1):
-        yield np.random.randn(layer_sizes[i+1], layer_sizes[i])
+        n, m = layer_sizes[i:i+2]
+        epsilon = np.sqrt(6) / np.sqrt(m+n)
+
+        yield np.random.uniform(low=-epsilon, high=epsilon, size=(m, n))
 
 def random_bs(layer_sizes):
     """Initialize list of random bias vectors
@@ -50,5 +54,8 @@ def random_bs(layer_sizes):
 
     """
     num_layers = len(layer_sizes)
-    for i in range(num_layers-1):
-        yield np.random.randn(layer_sizes[i+1]).reshape(layer_sizes[i+1], 1)
+    for i in range(1, num_layers):
+        n = layer_sizes[i]
+        epsilon = np.sqrt(6) / np.sqrt(n+1)
+
+        yield np.random.uniform(low=-epsilon, high=epsilon, size=(n, 1))
