@@ -24,7 +24,7 @@ class NeuralNetwork:
     """
     def __init__(self, X, ys_train, Hs, C,
             params=None, learning_rate=0.001, regularizer=1., batch_size=None,
-            gradient_checking=False, inspect=False):
+            gradient_checking=False, inspect=True):
         """Initializes neural network classifier
         
         Parameters
@@ -80,11 +80,13 @@ class NeuralNetwork:
         
     def predict(self, X):
         """Return the probability of x belonging to either class"""
-        probs = self.forward_backward_prop(predict=True)
+        N, M = X.shape
+        ys = np.ones(M, dtype=np.int) # Dummy labels
+        probs = self.forward_backward_prop(X, ys, predict=True)
         
         return probs.argmax(axis=0)
         
-    def forward_backward_prop(self, params=None, predict=False):
+    def forward_backward_prop(self, X=None, ys=None, params=None, predict=False):
         """Perform forward and backward prop over a minibatch of training examples
         
         Returns loss and gradients
@@ -94,10 +96,11 @@ class NeuralNetwork:
         Ws, bs = params['Ws'], params['bs']
         affines, sigmoids, softmax_ce = self.affines, self.sigmoids, self.softmax_ce
 
-        # Get minibatch of training examples
-        low, high = self.batch_index*self.batch_size, (self.batch_index+1)*self.batch_size
-        X = self.X_train[:, low:high].reshape(self.N, self.batch_size)
-        ys = self.ys_train[low:high]
+        if not predict:
+            # Get minibatch of training examples
+            low, high = self.batch_index*self.batch_size, (self.batch_index+1)*self.batch_size
+            X = self.X_train[:, low:high].reshape(self.N, self.batch_size)
+            ys = self.ys_train[low:high]
 
         # Forward pass
         hidden = X
@@ -244,5 +247,4 @@ class NeuralNetwork:
     def info(self):
         """Get a snapshot of the model's most recent activity"""
         
-        return Model(self.X, self.ys,
-                self.params, self.gradients, self.loss)
+        return Model(self.X, self.ys, self.params, self.gradients, self.gradients['loss'])
