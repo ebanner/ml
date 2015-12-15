@@ -52,6 +52,7 @@ class NeuralNetwork:
 
         # Initialize minibatch generator
         self.minibatch = minibatch_generator(X, ys_train, batch_size)
+        next(self.minibatch)
 
         # Initialize params?
         if not params:
@@ -88,7 +89,8 @@ class NeuralNetwork:
         
         return probs.argmax(axis=0)
         
-    def forward_backward_prop(self, X=None, ys=None, params=None, predict=False):
+    def forward_backward_prop(self, X=None, ys=None, params=None, predict=False,
+            freeze_batch_index=False):
         """Perform forward and backward prop over a minibatch of training examples
         
         Returns loss and gradients
@@ -99,7 +101,7 @@ class NeuralNetwork:
         affines, sigmoids, softmax_ce = self.affines, self.sigmoids, self.softmax_ce
 
         if not predict:
-            X, ys = next(self.minibatch)
+            X, ys = self.minibatch.send(freeze_batch_index)
 
         # Forward pass
         hidden = X
@@ -222,11 +224,11 @@ class NeuralNetwork:
 
                 # L(p+h)
                 params[param_symbol][i] += h
-                loss_forward = self.forward_backward_prop(params)['loss']
+                loss_forward = self.forward_backward_prop(params, freeze_batch_index=True)['loss']
 
                 # L(p-h)
                 params[param_symbol][i] -= 2*h
-                loss_backward = self.forward_backward_prop(params)['loss']
+                loss_backward = self.forward_backward_prop(params, freeze_batch_index=True)['loss']
 
                 # dL/dp = L(p+h)-L(p-h) / 2*h
                 dps[i][ix] = (loss_forward-loss_backward) / (2*step)

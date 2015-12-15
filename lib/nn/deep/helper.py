@@ -61,7 +61,15 @@ def random_bs(layer_sizes):
         yield np.random.uniform(low=-epsilon, high=epsilon, size=(n, 1))
 
 def minibatch_generator(X, ys, batch_size=None):
-    """Yields minibatch after minibatch"""
+    """Yields minibatch after minibatch
+    
+    For the gradient checking minibatch to be the same as the minibatch used to
+    compute analytic gradients, we explicitly tell the batch index to update or
+    not. Gradient checking will always tell the batch index *not* to update,
+    whereas learn() will always have it update.
+    
+    """
+    yield # Dummy yield
     
     N, M = X.shape
     batch_size = M if not batch_size else batch_size
@@ -69,9 +77,12 @@ def minibatch_generator(X, ys, batch_size=None):
 
     while True:
         low, high = batch_index*batch_size, (batch_index+1)*batch_size
-        X = X[:, low:high].reshape(N, batch_size)
-        ys = ys[low:high]
+        X_mini = X[:, low:high].reshape(N, batch_size)
+        ys_mini = ys[low:high]
 
-        yield X, ys
+        freeze_batch_index = (yield X_mini, ys_mini)
 
-        batch_index = (batch_index+1) % (M//batch_size)
+        # Do *not* update the batch index if we were called during a gradient
+        # check!
+        if not freeze_batch_index:
+            batch_index = (batch_index+1) % (M//batch_size)
