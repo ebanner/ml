@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 
 from softmax import softmax_vectorized
@@ -247,4 +249,4 @@ class NeuralNetwork:
     def info(self):
         """Get a snapshot of the model's most recent activity"""
         
-        return Model(self.X, self.ys, self.params, self.gradients, self.gradients['loss'])
+        return Model(self.X, self.ys, copy.deepcopy(self.params), self.gradients, self.gradients['loss'])
