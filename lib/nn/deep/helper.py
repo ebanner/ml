@@ -59,3 +59,19 @@ def random_bs(layer_sizes):
         epsilon = np.sqrt(6) / np.sqrt(n+1)
 
         yield np.random.uniform(low=-epsilon, high=epsilon, size=(n, 1))
+
+def minibatch_generator(X, ys, batch_size=None):
+    """Yields minibatch after minibatch"""
+    
+    N, M = X.shape
+    batch_size = M if not batch_size else batch_size
+    batch_index = 0
+
+    while True:
+        low, high = batch_index*batch_size, (batch_index+1)*batch_size
+        X = X[:, low:high].reshape(N, batch_size)
+        ys = ys[low:high]
+
+        yield X, ys
+
+        batch_index = (batch_index+1) % (M//batch_size)

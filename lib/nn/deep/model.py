@@ -4,7 +4,7 @@ import numpy as np
 
 from softmax import softmax_vectorized
 
-from nn.deep.helper import State, Model, sigmoid, random_Ws, random_bs
+from nn.deep.helper import State, Model, sigmoid, random_Ws, random_bs, minibatch_generator
 from nn.deep.units import Affine, Sigmoid, SoftmaxCrossEntropy
 
 import logging
@@ -50,8 +50,8 @@ class NeuralNetwork:
         
         self.X_train, self.ys_train = X, ys_train
 
-        self.batch_size = self.M if not batch_size else batch_size
-        self.batch_index = 0
+        # Initialize minibatch generator
+        self.minibatch = minibatch_generator(X, ys_train, batch_size)
 
         # Initialize params?
         if not params:
@@ -99,10 +99,7 @@ class NeuralNetwork:
         affines, sigmoids, softmax_ce = self.affines, self.sigmoids, self.softmax_ce
 
         if not predict:
-            # Get minibatch of training examples
-            low, high = self.batch_index*self.batch_size, (self.batch_index+1)*self.batch_size
-            X = self.X_train[:, low:high].reshape(self.N, self.batch_size)
-            ys = self.ys_train[low:high]
+            X, ys = next(self.minibatch)
 
         # Forward pass
         hidden = X
@@ -166,9 +163,6 @@ class NeuralNetwork:
             for i, p in enumerate(param):
                 self.params[p_symbol][i] = p - self.learning_rate*gradients[g_symbol][i]
 
-        # Update batch index so the next time the next batch in line is used
-        self.batch_index = (self.batch_index+1) % (self.M//self.batch_size)
-        
         # Log additional info?
         if self.inspect:
             self.gradient = gradients
