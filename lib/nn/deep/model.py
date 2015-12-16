@@ -26,7 +26,7 @@ class NeuralNetwork:
     """
     def __init__(self, X, ys_train, Hs, C,
             params=None, learning_rate=0.001, regularizer=1., batch_size=None,
-            gradient_checking=False, inspect=True):
+            random_minibatch=False, gradient_checking=False, inspect=True):
         """Initializes neural network classifier
         
         Parameters
@@ -51,7 +51,7 @@ class NeuralNetwork:
         self.X_train, self.ys_train = X, ys_train
 
         # Initialize minibatch generator
-        self.minibatch = minibatch_generator(X, ys_train, batch_size)
+        self.minibatch = minibatch_generator(X, ys_train, batch_size, random_minibatch)
         next(self.minibatch)
 
         # Initialize params?
@@ -102,6 +102,7 @@ class NeuralNetwork:
 
         if not predict:
             X, ys = self.minibatch.send(freeze_batch_index)
+            minibatch_size = len(ys)
 
         # Forward pass
         hidden = X
@@ -135,13 +136,13 @@ class NeuralNetwork:
         # Normalize while we're at it
         for i, W in enumerate(Ws):
             dWs[i] += (self.regularizer*W)
-            dWs[i] /= self.M
+            dWs[i] /= minibatch_size
 
         for i, b in enumerate(bs):
             dbs[i] += (self.regularizer*b)
-            dbs[i] /= self.M
+            dbs[i] /= minibatch_size
 
-        gradients = {'loss': loss/self.M, 'dWs': dWs, 'dbs': dbs}
+        gradients = {'loss': loss/minibatch_size, 'dWs': dWs, 'dbs': dbs}
         
         # Log additional info?
         if self.inspect:
@@ -245,4 +246,4 @@ class NeuralNetwork:
     def info(self):
         """Get a snapshot of the model's most recent activity"""
         
-        return Model(self.X, self.ys, copy.deepcopy(self.params), self.gradients, self.gradients['loss'])
+        return Model(str(self.X), str(self.ys), copy.deepcopy(self.params), self.gradients, self.gradients['loss'])

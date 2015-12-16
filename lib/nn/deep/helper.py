@@ -1,8 +1,8 @@
+import itertools
+
 import numpy as np
 from collections import namedtuple
 
-# Model = namedtuple('Model',['x', 'y', 'wh', 'bh', 'z', 'w1', 'b1', 'score1', 'w2', 'b2', 'score2', 'prob1', 'prob2', 'dscore1', 'dscore2', 'db1', 'dw1', 'db2', 'dw2', 'loss'])
-# State = namedtuple('State', ['loss', 'dwh', 'dbh', 'dws', 'dbs'])
 
 Model = namedtuple('Model', ['X', 'ys', 'params', 'gradients', 'loss'])
 State = namedtuple('State', ['loss', 'dWh', 'dbh', 'dWs', 'dbs'])
@@ -60,7 +60,19 @@ def random_bs(layer_sizes):
 
         yield np.random.uniform(low=-epsilon, high=epsilon, size=(n, 1))
 
-def minibatch_generator(X, ys, batch_size=None):
+def get_minibatch_indices(max_index, start, num_desired):
+    """Produces indices for a minibatch
+
+    Wraps around the end to the beginning
+
+    """
+    index = itertools.cycle(range(max_index))
+    for _ in range(start):
+        next(index)
+
+    return [next(index) for _ in range(num_desired)]
+
+def minibatch_generator(X, ys, batch_size=None, random=False):
     """Yields minibatch after minibatch
     
     For the gradient checking minibatch to be the same as the minibatch used to
@@ -76,13 +88,16 @@ def minibatch_generator(X, ys, batch_size=None):
     batch_index = 0
 
     while True:
-        low, high = batch_index*batch_size, (batch_index+1)*batch_size
-        X_mini = X[:, low:high].reshape(N, batch_size)
-        ys_mini = ys[low:high]
+        low, high = batch_index, batch_index+batch_size
+        indexes = get_minibatch_indices(M, batch_index, batch_size)
+        X_mini, ys_mini = X[:, indexes], ys[indexes]
 
         freeze_batch_index = (yield X_mini, ys_mini)
 
         # Do *not* update the batch index if we were called during a gradient
         # check!
         if not freeze_batch_index:
-            batch_index = (batch_index+1) % (M//batch_size)
+            if random:
+                batch_index = np.random.randint(0, M)
+            else:
+                batch_index = (batch_index+batch_size) % M
